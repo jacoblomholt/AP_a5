@@ -57,27 +57,32 @@ genVar =
     f i = (:) <$> choose ('a','z') <*> f (i - 1)
 
 genExp :: [VName] -> Int -> Gen Exp
-genExp _ 0 = frequency [(1, CstInt <$> arbitrary), (1, CstBool <$> arbitrary)]
+genExp _ 0 = frequency [(1, CstInt <$> arbitrary), (1, CstBool <$> arbitrary),
+                        (1, pure $ CstInt 0)]
 genExp vs size =
   frequency
     [ (10, CstInt <$> arbitrary)
     , (10, CstBool <$> arbitrary)
-    , (1, Add <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, Sub <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, Mul <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, Div <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, Pow <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, Eql <$> genExp vs halfSize <*> genExp vs halfSize)
-    , (1, If <$> genExp vs thirdSize <*> genExp vs thirdSize <*> genExp vs thirdSize)
-    , (if vs == [] then 0 else 7, Var <$> oneof (fmap pure vs))
-    , (3, Var <$> genVar)
+    , (5, Add <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, Sub <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, Mul <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, Div <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, Pow <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, Eql <$> genExp vs halfSize <*> genExp vs halfSize)
+    , (5, If <$> genExp vs thirdSize <*> genExp vs thirdSize <*> genExp vs thirdSize)
+    , (if vs == [] then 0 else 20, Var <$> oneof (fmap pure vs))
+    , (1, Var <$> genVar)
     ,
-      (300,
+      (20,
       do
         v <- genVar
         let vs' = v : vs
         Let v <$> genExp vs halfSize <*> genExp vs' halfSize)
-    , (10, Lambda <$> genVar <*> genExp vs (size - 1))
+    , (20,
+      do
+        v <- genVar
+        let vs' = v : vs
+        Lambda <$> pure v <*> genExp vs' (size - 1))
     , (10, Apply <$> genExp vs halfSize <*> genExp vs halfSize)
     , (10, TryCatch <$> genExp vs halfSize <*> genExp vs halfSize)
     ]
