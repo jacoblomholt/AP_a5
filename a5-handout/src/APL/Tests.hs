@@ -3,8 +3,9 @@ module APL.Tests
   )
 where
 
-import APL.AST (Exp (..), VName, subExp)
+import APL.AST (Exp (..), VName, subExp, printExp)
 import APL.Eval
+import APL.Parser
 import APL.Error (isVariableError, isDomainError, isTypeError)
 import APL.Check (checkExp)
 import Test.QuickCheck
@@ -49,8 +50,12 @@ instance Arbitrary Exp where
   shrink _ = []
 
 genVar :: Gen VName
-genVar =
-  choose (2, 4) >>= f
+genVar = do
+  len <- choose (2, 4)
+  v   <- f len
+  if v `elem` keywords then
+    genVar
+  else pure v
   where
     f :: Int -> Gen String
     f 0 = pure []
@@ -102,10 +107,35 @@ expCoverage e = checkCoverage
   $ ()
 
 parsePrinted :: Exp -> Bool
-parsePrinted _ = undefined
+parsePrinted e =
+  let e' = f e in
+  case parseAPL "" (printExp e') of
+    Left _ -> False
+    Right e'' ->
+      e'' == e'
+  where
+    f (CstInt n) = CstInt $ abs n
+    f (CstBool b) = CstBool b
+    f (Add e1 e2) = Add (f e1) (f e2)
+    f (Sub e1 e2) = Sub (f e1) (f e2)
+    f (Mul e1 e2) = Mul (f e1) (f e2)
+    f (Div e1 e2) = Div (f e1) (f e2)
+    f (Pow e1 e2) = Pow (f e1) (f e2)
+    f (Eql e1 e2) = Eql (f e1) (f e2)
+    f (If e1 e2 e3) = If (f e1) (f e2) (f e3)
+    f (Var vname) = Var vname
+    f (Let vname e1 e2) = Let vname (f e1) (f e2)
+    f (Lambda vname e1) = Lambda vname (f e1)
+    f (Apply e1 e2) = Apply (f e1) (f e2)
+    f (TryCatch e1 e2) = TryCatch (f e1) (f e2)
 
 onlyCheckedErrors :: Exp -> Bool
-onlyCheckedErrors _ = undefined
+onlyCheckedErrors e =
+  let errors = checkExp e in
+  case runEval $ eval e of
+    Right _ -> True
+    Left err ->
+      err `elem` errors
 
 -- The number of tests is part of the specification of this test suite: some of
 -- these properties fail only rarely.  Do not reduce it.
